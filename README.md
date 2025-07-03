@@ -39,7 +39,7 @@ python3 -B ./processing/graphconstruction.py
 ```
 
 ### 3. Model Training & Testing
-The model is trained and tested at both function and statement levels. Output includes:
+The model is trained and tested at both function and statement levels. Output (```./stoarge/outputs/```) includes:
  - Classification metrics
  - A CSV of model predictions for each function
  - Detailed predictions per code line (with line numbers)
