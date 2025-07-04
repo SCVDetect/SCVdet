@@ -1,0 +1,22 @@
+
+pk data
+
+
+configuration : 
+Best model: /home/rz.lekeufack/Rosmael/Modeling_GNN/SvulDet/sourcescripts/storage/cache/checkpoints/best_model-v18.ckpt with val_f1 = 0.3790
+Best config: {'in_feats': 768, 'hidden_feats': 64, 'num_heads': 4, 'dropout': 0.4, 'lr': 5e-05, 'embedd_method': 'Codebert', 'glmethod': 'dependency'}
+
+Testing DataLoader 0: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1791/1791 [00:15<00:00, 112.11it/s]
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃        Test metric        ┃       DataLoader 0        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│       test_func_acc       │    0.4388609826564789     │
+│       test_func_f1        │    0.37107107043266296    │
+│    test_func_precision    │    0.4956527352333069     │
+│     test_func_recall      │    0.4882216155529022     │
+│       test_node_acc       │    0.7588557004928589     │
+│       test_node_f1        │    0.47108182311058044    │
+│    test_node_precision    │    0.5090211629867554     │
+│     test_node_recall      │     0.551206111907959     │
+└───────────────────────────┴───────────────────────────┘
+

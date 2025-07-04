@@ -46,12 +46,11 @@ The model is trained and tested at both function and statement levels. Output in
  - Unique function IDs and corresponding source code (stored in ``` ./storage/processed/before```)
 
 ```sh
-python3 -B ./model/scvuldetetc.py  
+python3 -B ./model/scvuldetect.py  
 ```
 
+## Sample Output
+<img src="outputdata/outputof.png" alt="Model Output Example" width="400"/>
 
-
-outputs_best_codebert_dbscan_kb
-
-
-outputs
+<!-- Or for percentage scaling (relative to page width) -->
+<img src="outputdata/outputof.png" alt="Model Output Example" style="width:50%; max-width:600px;"/>
