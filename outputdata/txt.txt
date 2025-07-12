@@ -3,7 +3,6 @@ pk data
 
 
 configuration : 
-Best model: /home/rz.lekeufack/Rosmael/Modeling_GNN/SvulDet/sourcescripts/storage/cache/checkpoints/best_model-v18.ckpt with val_f1 = 0.3790
 Best config: {'in_feats': 768, 'hidden_feats': 64, 'num_heads': 4, 'dropout': 0.4, 'lr': 5e-05, 'embedd_method': 'Codebert', 'glmethod': 'dependency'}
 
 Testing DataLoader 0: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1791/1791 [00:15<00:00, 112.11it/s]
