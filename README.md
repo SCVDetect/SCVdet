@@ -51,4 +51,6 @@ python3 -B ./model/scvuldetect.py
 
 ## Sample Output
 <img src="outputdata/outputof.png" alt="Model Output Example" width="300"/>
+#### 500-node dependency graph
+<img src="outputdata/RQ1/500sample_optimized_call_graph.png" alt="Model Output Example" width="300"/>
 
