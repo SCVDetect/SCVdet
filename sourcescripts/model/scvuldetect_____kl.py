@@ -36,7 +36,7 @@ class GraphFunctionDataset(Dataset):
             vuldf = self.df[self.df.vul == 1]
             nonvuldf = self.df[self.df.vul == 0].sample(len(vuldf), random_state=0) # 5 * 
             self.df = pd.concat([vuldf, nonvuldf])
-            # self.df = self.df.sample(min(len(self.df), 1500))                           ########### -------------------------------------------------------------------------------------------->>>>
+            self.df = self.df.sample(min(len(self.df), 1200))
             self.graph_dir = graph_dir
             self.graph_ids = []
         else: 
@@ -44,7 +44,7 @@ class GraphFunctionDataset(Dataset):
             if verbose:
                 print(f"[{split}] Vulnerable: {sum(self.df.vul == 1)}, Non-Vulnerable: {sum(self.df.vul == 0)}")
             vuldf = self.df[self.df.vul == 1]
-            nonvuldf = self.df[self.df.vul == 0]#.sample(len(vuldf), random_state=0) # 5 * ########### -------------------------------------------------------------------------------------------->>>>
+            nonvuldf = self.df[self.df.vul == 0]#.sample(len(vuldf), random_state=0) # 5 * 
             self.df = pd.concat([vuldf, nonvuldf])
             self.graph_dir = graph_dir
             self.graph_ids = []
@@ -105,159 +105,118 @@ class GetlistGL:
         return gl, c_labels
 
 class MultiTaskGAT(nn.Module):
-    def __init__(self, config, v1):
+    def __init__(self, in_feats, hidden_feats, num_heads, dropout,
+                 embedd_method, glmethod, v1):
         super().__init__()
-        self.embedd_method = config['embedd_method']
-        self.glmethod = config['glmethod']
-        self.base_dropout = config['dropout']
-        self.v1 = nn.Parameter(torch.tensor(v1).float())  # Learnable
-
-        rand_dim = config['rand_feat_dim']
-        femb_dim = config['func_emb_dim']
-        emb_dim = config['embed_dim']
-        hidden_feats = config['hidden_feats']
-        num_heads = config['num_heads']
-
-        self.rand_proj = nn.Linear(rand_dim, hidden_feats)
-        self.femb_proj = nn.Linear(femb_dim, hidden_feats)
-        self.emb_proj = nn.Linear(emb_dim, hidden_feats)
-
-        self.node_comb_proj = nn.Linear(2 * hidden_feats, hidden_feats)
-        self.func_comb_proj = nn.Linear(2 * hidden_feats, hidden_feats)
-
-        self.gat1_node = dgl.nn.GATConv(hidden_feats, hidden_feats, num_heads,
-                                        feat_drop=self.base_dropout, attn_drop=self.base_dropout)
-        self.gat2_node = dgl.nn.GATConv(hidden_feats * num_heads, hidden_feats, 1,
-                                        feat_drop=self.base_dropout, attn_drop=self.base_dropout)
-
-        self.gat1_func = dgl.nn.GATConv(hidden_feats, hidden_feats, num_heads,
-                                        feat_drop=self.base_dropout, attn_drop=self.base_dropout)
-        self.gat2_func = dgl.nn.GATConv(hidden_feats * num_heads, hidden_feats, 1,
-                                        feat_drop=self.base_dropout, attn_drop=self.base_dropout)
-        
-        self.node_mlp = nn.Sequential(
-            nn.Linear(hidden_feats, hidden_feats),
-            nn.ReLU(),
-            nn.Dropout(self.base_dropout),
-            nn.Linear(hidden_feats, hidden_feats // 2),
-            nn.ReLU(),
-            nn.Dropout(self.base_dropout),
-            nn.Linear(hidden_feats // 2, 2)
-            )
-
-        self.graph_mlp = nn.Sequential(
-            nn.Linear(hidden_feats, 2)
-            )
-
-        self.v1_projector = nn.Linear(len(v1), hidden_feats)
+        self.embedd_method = embedd_method 
+        self.glmethod = glmethod
+        self.base_dropout = dropout
+        self.v1 = nn.Parameter(torch.tensor(v1).float())  # <--- Learnable parameter
         self.beta_mlp = nn.Sequential(
             nn.Linear(len(v1), 16),
             nn.ReLU(),
             nn.Linear(16, 1),
-            nn.Sigmoid()
+            nn.Sigmoid() 
         )
 
+        self.gat1 = dgl.nn.GATConv(in_feats, hidden_feats, num_heads, 
+                                   feat_drop=dropout, attn_drop=dropout)
+        self.gat2 = dgl.nn.GATConv(hidden_feats * num_heads, hidden_feats, 1,
+                                   feat_drop=dropout, attn_drop=dropout)
+
+        self.node_mlp = nn.Sequential(
+            nn.Linear(hidden_feats, hidden_feats),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_feats, 2)
+        )
+        self.graph_mlp = nn.Sequential(
+            nn.Linear(hidden_feats, hidden_feats),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_feats, 2)
+        )
+        self.v1_projector = nn.Linear(len(v1), hidden_feats)
+
     def compute_beta(self):
-        return self.beta_mlp(self.v1).squeeze()
+        # Pass v1 through MLP to get beta
+        beta = self.beta_mlp(self.v1)
+        return beta.squeeze()
 
     def forward(self, g):
-        emb = g.ndata[self._select_emb()].float()
-        func_emb = g.ndata['_FUNC_EMB'].float().detach()
         rand_feat = g.ndata['_RANDFEAT'].float()
+        func_emb = g.ndata['_FUNC_EMB'].float()
 
-        emb = self.emb_proj(emb)
-        func_emb = self.femb_proj(func_emb)
-        rand_feat = self.rand_proj(rand_feat)
+        if self.embedd_method == "Codebert":
+            emb = g.ndata['_CODEBERT'].float()
+        elif self.embedd_method == "Word2vec":
+            emb = g.ndata['_WORD2VEC'].float()
+        elif self.embedd_method == "Sbert":
+            emb = g.ndata['_SBERT'].float()
+        else:
+            raise ValueError(f"Unsupported embedding method: {self.embedd_method}")
 
-        h_node = torch.cat([rand_feat, emb], dim=1)
-        h_node = self.node_comb_proj(h_node)
-        h_node = self.gat1_node(g, h_node).flatten(1)
-        h_node = self.gat2_node(g, h_node).squeeze(1)
-        g.ndata['h'] = h_node
-        
-        h_func = torch.cat([rand_feat, func_emb], dim=1)
-        h_func = self.func_comb_proj(h_func)
-        h_func = self.gat1_func(g, h_func).flatten(1)
-        h_func = self.gat2_func(g, h_func).squeeze(1)
-        g.ndata['h_func'] = h_func
-        hg = dgl.mean_nodes(g, 'h_func')
-        
-        
-        v1_proj = self.v1_projector(self.v1).to(h_node.device)
+        func_emb = F.interpolate(func_emb.unsqueeze(0), size=emb.shape[1], mode='nearest').squeeze(0)
+        rand_feat = F.interpolate(rand_feat.unsqueeze(0), size=emb.shape[1], mode='nearest').squeeze(0)
+        h = torch.cat([rand_feat, func_emb, emb], dim=1)
+        #h = torch.cat([func_emb, emb], dim=1)  # , rand_feat
+        h = nn.Linear(h.shape[1], emb.shape[1]).to(h.device)(h)
+        beta = self.compute_beta()
+        dynamic_dropout = self.base_dropout * (1 + beta.item())
+        dynamic_dropout = min(dynamic_dropout, 0.6) 
+        # Apply dynamic dropout to GAT layers
+        # self.gat1.feat_drop.p = dynamic_dropout
+        # self.gat1.attn_drop.p = dynamic_dropout
+        # self.gat2.feat_drop.p = dynamic_dropout
+        # self.gat2.attn_drop.p = dynamic_dropout
 
-        if self.glmethod == "attention":
+        h = self.gat1(g, h).flatten(1)
+        h = self.gat2(g, h).squeeze(1)
+        g.ndata['h'] = h
+
+        v1_proj = self.v1_projector(self.v1).to(h.device)
+
+        if self.glmethod == "attention": 
             v1_proj = v1_proj.unsqueeze(0)
-            att_scores = torch.matmul(h_node, v1_proj.t()).squeeze(-1)
+            att_scores = torch.matmul(h, v1_proj.t()).squeeze(-1)
             g.ndata['att_score'] = att_scores
-        elif self.glmethod == "dependency":
-            v1_proj = v1_proj.unsqueeze(0).expand(h_node.shape[0], -1)
-            g.ndata['dependency'] = v1_proj.detach()
 
-        node_logits = self.node_mlp(h_node)
-        graph_logits = self.graph_mlp(hg.detach())
+        elif self.glmethod == "dependency":
+            v1_proj = v1_proj.unsqueeze(0).expand(h.shape[0], -1)
+            g.ndata['dependency'] = v1_proj
+
+        hg = dgl.mean_nodes(g, 'h')
         
-        # print("node logits-------------------------\n", node_logits)
-        # print("graph_logits -----------------------\n>", graph_logits)
+        node_logits = self.node_mlp(h)
+        graph_logits = self.graph_mlp(hg)
 
         return node_logits, graph_logits
 
-    def _select_emb(self):
-        if self.embedd_method == "Codebert":
-            return '_CODEBERT'
-        elif self.embedd_method == "Word2vec":
-            return '_WORD2VEC'
-        elif self.embedd_method == "Sbert":
-            return '_SBERT'
-        else:
-            raise ValueError(f"Unsupported embedding: {self.embedd_method}")
-
-
+# LearnableWeightedLoss
 class LearnableWeightedLoss(nn.Module):
-    def __init__(self, pos_weight=None):
+    def __init__(self):
         super().__init__()
-        self.pos_weight = pos_weight
+        self.alpha = nn.Parameter(torch.tensor(0.5))  
+        self.ce = nn.CrossEntropyLoss()
 
     def forward(self, node_logits, node_labels, graph_logits, func_label):
-        if self.pos_weight is not None:
-            ce_node = nn.CrossEntropyLoss(weight=self.pos_weight.to(node_logits.device))
-        else:
-            ce_node = nn.CrossEntropyLoss()
-        ce_func = nn.CrossEntropyLoss()
-
-        node_loss = ce_node(node_logits, node_labels)
-        func_loss = ce_func(graph_logits.view(1, -1), func_label.view(1))
-
-        entropy = self.entropy_loss(node_logits)
-        loss = (node_loss + func_loss/2 + 0.01 * entropy)
+        node_loss = self.ce(node_logits, node_labels)
+        func_loss = self.ce(graph_logits.view(1, -1), func_label.view(1))
+        loss = self.alpha * node_loss + (1 - self.alpha) * func_loss
         return loss
-
-    def entropy_loss(self, logits):
-        p = torch.softmax(logits, dim=1)
-        return -torch.mean(torch.sum(p * torch.log(p + 1e-8), dim=1))
-
-def compute_node_class_weights(dataset):
-    all_labels = []
-    for g in dataset:
-        all_labels.append(g.ndata['_VULN'].long())
-    all_labels = torch.cat(all_labels)
-    counts = torch.bincount(all_labels)
-    if len(counts) < 2:
-        return torch.tensor([1.0, 1.0])
-    total = counts.sum().float()
-    weights = total / (2 * counts.float())
-    return weights
-
     
 # Lightning Module Defauld
 class LitSvulDetGAT(LightningModule):
-    def __init__(self, config, v1, pos_weight=None):
+    def __init__(self, config, v1):
         super().__init__()
         self.save_hyperparameters()
-        self.model = MultiTaskGAT(config, v1)
-        self.loss_fn = LearnableWeightedLoss(pos_weight)
+        self.model = MultiTaskGAT(config['in_feats'], config['hidden_feats'], config['num_heads'], config['dropout'],
+                                  config['embedd_method'], config['glmethod'], v1)
+        self.loss_fn = LearnableWeightedLoss()
         self.lr = config['lr']
         self.val_f1_history = []
         self.acc_history = []
+
         self.val_preds = []
         self.val_labels = []
         self.val_preds_nodes = []
@@ -265,43 +224,21 @@ class LitSvulDetGAT(LightningModule):
 
     def forward(self, g):
         return self.model(g)
-    
+
     def training_step(self, batch, batch_idx):
         node_logits, graph_logits = self(batch)
         node_labels = batch.ndata['_VULN'].long()
         func_label = batch.ndata['_FVULN'][0].long()
-        
-        if (node_labels == 1).sum() > 0:
-            ce_node = nn.CrossEntropyLoss(reduction='none')
-            loss_per_node = ce_node(node_logits, node_labels)
-            weights = torch.where(node_labels == 1, 1.0, 0.5).to(node_logits.device)
-            node_loss = (loss_per_node * weights).mean()
-            entropy = self.loss_fn.entropy_loss(node_logits)
-        else:
-            node_loss = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
-            entropy = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
-            
-        if self.current_epoch >= self.hparams.get("freeze_func_epochs", 500):
-            ce_func = nn.CrossEntropyLoss()
-            func_loss = ce_func(graph_logits.view(1, -1), func_label.view(1))
-        else:
-            func_loss = torch.tensor(0.0, device=graph_logits.device, requires_grad=True)
-            loss = node_loss + func_loss + 0.01 * entropy
-        
-        self.log("train_loss", loss, prog_bar=True, sync_dist=True)
-        self.log("train_loss_node", node_loss, prog_bar=True, sync_dist=True)
-        self.log("train_loss_func", func_loss, prog_bar=True, sync_dist=True)
-        self.log("train_entropy", entropy, sync_dist=True)
+        loss = self.loss_fn(node_logits, node_labels, graph_logits, func_label)
+        self.log('train_loss', loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         node_logits, graph_logits = self(batch)
         node_labels = batch.ndata['_VULN'].long()
         func_label = batch.ndata['_FVULN'][0].long()
-        
-        temperature = 0.7
-        node_probs = torch.softmax(node_logits / temperature, dim=1)
-        # node_probs = torch.softmax(node_logits, dim=1)
+
+        node_probs = torch.softmax(node_logits, dim=1)
         pred_node = (node_probs[:, 1] >= 0.5).long() # imbalanced nodes
         pred = torch.argmax(graph_logits).item()
 
@@ -325,10 +262,10 @@ class LitSvulDetGAT(LightningModule):
         self.val_f1_history.append((epoch, f1))
         self.acc_history.append((epoch, acc))
 
-        # self.log("val_acc", acc, prog_bar=True,  sync_dist=True)
-        # self.log("val_acc_node", acc_node, prog_bar=True, sync_dist=True)
-        self.log('val_f1', f1, prog_bar=True, sync_dist=True)
-        self.log("val_f1_node", f1_node, prog_bar=True, sync_dist=True)
+        self.log("val_acc", acc, prog_bar=True,  sync_dist=True)
+        self.log('val_f1', f1, prog_bar=True,sync_dist=True)
+        self.log("val_acc_node", acc_node, prog_bar=True,sync_dist=True)
+        self.log("val_f1_node", f1_node, prog_bar=True,sync_dist=True)
 
         self.val_preds.clear()
         self.val_labels.clear()
@@ -358,10 +295,10 @@ class LitSvulDetGAT(LightningModule):
         func_preds = torch.tensor(self.test_func_preds)
         func_labels = torch.tensor(self.test_func_labels)
 
-        func_pre = pd.DataFrame({"True_label": func_labels, "Prediction": func_preds})
-        node_pre = pd.DataFrame({"True_label": node_labels, "Prediction": node_preds})
-        func_pre.to_csv(f"{utls.outputs_dir()}/func_prediction.csv", index=False)
-        node_pre.to_csv(f"{utls.outputs_dir()}/nodes_prediction.csv", index=False)  
+        # func_pre = pd.DataFrame({"True_label": func_labels, "Prediction": func_preds})
+        # node_pre = pd.DataFrame({"True_label": node_labels, "Prediction": node_preds})
+        # func_pre.to_csv(f"{utls.outputs_dir()}/func_prediction.csv", index=False)
+        # node_pre.to_csv(f"{utls.outputs_dir()}/nodes_prediction.csv", index=False)  
         node_f1 = f1_score(node_labels, node_preds, average="macro", zero_division=0)
         node_acc = accuracy_score(node_labels, node_preds)
         node_precision = precision_score(node_labels, node_preds, average="macro", zero_division=0)
@@ -427,8 +364,10 @@ def get_or_compute_v1(df, config_grid, save_path=f"{utls.cache_dir()}/v1.npy"):
         return vec   
 
     if os.path.exists(save_path):
+        # print(f"Loading v1 from {save_path}...")
         v1 = np.load(save_path)
     else:
+        # print(f"v1 not found. Computing and saving to {save_path}...")
         gl_loader = GetlistGL(df, config_grid, split='train')
         graph_list = gl_loader.get_graph_list()
         gl, _ = GetlistGL.dependency_graph_construction(graph_list, config_grid)
@@ -489,14 +428,8 @@ def train_with_param_trials(df, graph_dir, config_grid):
             'lr': lr,
             'embedd_method': config_grid['embedd_method'],
             'glmethod': config_grid['glmethod'],
-            #
-            'rand_feat_dim': 100,
-            'func_emb_dim': 768,
-            'embed_dim': 768,
         }
-        node_pos_weight = compute_node_class_weights(train_set)
-        model = LitSvulDetGAT(trial_config, v1, node_pos_weight)
-        # model = LitSvulDetGAT(trial_config, v1)
+        model = LitSvulDetGAT(trial_config, v1)
 
         checkpoint_path = f"{utls.cache_dir()}/checkpoints/trial_{idx+1}.ckpt"
 
@@ -602,7 +535,7 @@ class FunctionLevelEvaluator:
             except Exception as e:
                 print(f"Error loading graph {graph_id}: {e}")
     
-    def predict_function_level(self, threshold=0.5):
+    def predict_function_level(self, threshold=0.3):
         """
         Predict function-level vulnerability based on node-level predictions
         """
@@ -613,8 +546,7 @@ class FunctionLevelEvaluator:
         
         for g, graph_id, true_label in zip(self.test_graphs, self.graph_ids, self.func_labels):
             with torch.no_grad():
-                node_logits, func_logits = self.model(g.to(self.device))
-                func_pred_la = torch.argmax(func_logits).item()
+                node_logits, _ = self.model(g.to(self.device))
                 node_probs = torch.softmax(node_logits, dim=1)
                 node_preds = (node_probs[:, 1] > threshold).long().cpu().numpy()
                 node_labels = g.ndata['_VULN'].long().cpu().numpy()
@@ -622,9 +554,8 @@ class FunctionLevelEvaluator:
                 func_pred = 1 if np.any(node_preds == 1) else 0
                 results.append({
                     'function_id': graph_id,
-                    'true_label': true_label,
-                    'func_level_pred': func_pred_la,
                     'prediction': func_pred,
+                    'true_label': true_label,
                     'vulnerable_nodes_ratio': np.mean(node_preds),
                     'node_labels': node_labels.tolist(),       
                     'node_predictions': node_preds.tolist(),   
@@ -633,14 +564,14 @@ class FunctionLevelEvaluator:
         
         return pd.DataFrame(results)
     
-    def evaluate_function_level(self, threshold=0.5):
+    def evaluate_function_level(self, threshold=0.3):
         """
         Evaluate function-level performance metrics
         Dictionary of evaluation metrics
         """
         pred_df = self.predict_function_level(threshold)
         y_true = pred_df['true_label'].values
-        y_pred = pred_df['func_level_pred'].values
+        y_pred = pred_df['prediction'].values
         metrics = {
             'function_accuracy': accuracy_score(y_true, y_pred),
             'function_precision': precision_score(y_true, y_pred, average="macro", zero_division=0),
@@ -663,10 +594,10 @@ if __name__ == '__main__':
         "embedd_method":  "Codebert",  # can be # "Codebert", "Sbert", or "Word2vec"
         'max_epochs': 30, #3, #20
         'in_feats': 768, #768, #384, #100 must e the same as the feature in graph 
-        'check_patience': 20, # 2, 5
+        'check_patience': 5, # 2, 5
         'batch_size':  "batch_idx", 
         'num_heads': 4, 
-        'check_monitor':  'val_f1_node',                    #'val_f1', # val_acc, 'val_f1' ######### 'val_f1_node'
+        'check_monitor': 'val_f1', # val_acc, 'val_f1' 
         'hidden_feats': [525], # , [64][64, 256]
         'lr': [1e-5], #[5e-5, 1e-4, 2e-4, 5e-4],
         'dropout': [0.4], #[0.1, 0.2, 0.3, 0.4, 0.5],

@@ -49,6 +49,9 @@ The model is trained and tested at both function and statement levels. Output (`
 python3 -B ./model/scvuldetect.py  
 ```
 
+python3 -B ./model/newmodelaaaanew.py # best model
+
+
 ## Sample Output
 <img src="outputdata/outputof.png" alt="Model Output Example" width="300"/>
 #### 500-node dependency graph

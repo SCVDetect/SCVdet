@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 # folder
+run_scvdet.sh
 sourcescripts/storage/outputs-final
 /sourcescripts/storage/external/joern-cli
 /sourcescripts/uutils/__pycache__
@@ -18,6 +19,9 @@ sourcescripts/lightning_logs
 /sourcescripts/storage/external/joern-cli.zip
 sourcescripts/generated_graphs
 sourcescripts/storage/outputs
+sourcescripts/storage/external/ProjectKB_domain_csv.csv
+sourcescripts/storage/outputs_sample
+zzzcheck.ipynb
 # C extensions
 *.so
 

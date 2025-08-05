@@ -25,3 +25,5 @@ urllib3==2.2.2
 uuid==1.30
 wheel==0.43.0
 
+# https://data.dgl.ai/wheels/cu121/dgl-2.0.0%2Bcu121-cp39-cp39-manylinux1_x86_64.whl
+
