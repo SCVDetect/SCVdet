@@ -22,6 +22,9 @@ sourcescripts/storage/outputs
 sourcescripts/storage/external/ProjectKB_domain_csv.csv
 sourcescripts/storage/outputs_sample
 zzzcheck.ipynb
+sourcescripts/storage/oldversion
+sourcescripts/storage/outputs_codebert_01
+
 # C extensions
 *.so
 

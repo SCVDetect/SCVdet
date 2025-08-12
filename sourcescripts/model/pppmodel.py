@@ -1,4 +1,3 @@
-
 import os
 import numpy as np
 import sys
@@ -36,7 +35,7 @@ class GraphFunctionDataset(Dataset):
             vuldf = self.df[self.df.vul == 1]
             nonvuldf = self.df[self.df.vul == 0].sample(len(vuldf), random_state=0) # 5 * 
             self.df = pd.concat([vuldf, nonvuldf])
-            # self.df = self.df.sample(min(len(self.df), 1500))                           ########### -------------------------------------------------------------------------------------------->>>>
+            # self.df = self.df.sample(min(len(self.df), 2000))                           ########### -------------------------------------------------------------------------------------------->>>>
             self.graph_dir = graph_dir
             self.graph_ids = []
         else: 
@@ -46,6 +45,7 @@ class GraphFunctionDataset(Dataset):
             vuldf = self.df[self.df.vul == 1]
             nonvuldf = self.df[self.df.vul == 0]#.sample(len(vuldf), random_state=0) # 5 * ########### -------------------------------------------------------------------------------------------->>>>
             self.df = pd.concat([vuldf, nonvuldf])
+            # self.df = self.df.sample(min(len(self.df), 1500)) 
             self.graph_dir = graph_dir
             self.graph_ids = []
 
@@ -247,8 +247,7 @@ def compute_node_class_weights(dataset):
     weights = total / (2 * counts.float())
     return weights
 
-    
-# Lightning Module Defauld
+# Lightning Module for Multi-Task GAT
 class LitSvulDetGAT(LightningModule):
     def __init__(self, config, v1, pos_weight=None):
         super().__init__()
@@ -256,6 +255,7 @@ class LitSvulDetGAT(LightningModule):
         self.model = MultiTaskGAT(config, v1)
         self.loss_fn = LearnableWeightedLoss(pos_weight)
         self.lr = config['lr']
+        self.style = config['method']  # methodlevel, linelevel, or default
         self.val_f1_history = []
         self.acc_history = []
         self.val_preds = []
@@ -265,44 +265,70 @@ class LitSvulDetGAT(LightningModule):
 
     def forward(self, g):
         return self.model(g)
-    
+
     def training_step(self, batch, batch_idx):
+        """
+        Adaptive training step
+        """
         node_logits, graph_logits = self(batch)
         node_labels = batch.ndata['_VULN'].long()
         func_label = batch.ndata['_FVULN'][0].long()
-        
-        if (node_labels == 1).sum() > 0:
-            ce_node = nn.CrossEntropyLoss(reduction='none')
-            loss_per_node = ce_node(node_logits, node_labels)
-            weights = torch.where(node_labels == 1, 1.0, 0.5).to(node_logits.device)
-            node_loss = (loss_per_node * weights).mean()
-            entropy = self.loss_fn.entropy_loss(node_logits)
-        else:
-            node_loss = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
-            entropy = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
-            
-        if self.current_epoch >= self.hparams.get("freeze_func_epochs", 500):
+
+        if self.style == "methodlevel":
+            if (node_labels == 1).sum() > 0:
+                ce_node = nn.CrossEntropyLoss(reduction='none')
+                loss_per_node = ce_node(node_logits, node_labels)
+                weights = torch.where(node_labels == 1, 1.0, 0.5).to(node_logits.device)
+                node_loss = (loss_per_node * weights).mean()
+                entropy = self.loss_fn.entropy_loss(node_logits)
+            else:
+                node_loss = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
+                entropy = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
+
             ce_func = nn.CrossEntropyLoss()
             func_loss = ce_func(graph_logits.view(1, -1), func_label.view(1))
-        else:
-            func_loss = torch.tensor(0.0, device=graph_logits.device, requires_grad=True)
             loss = node_loss + func_loss + 0.01 * entropy
-        
+
+        elif self.style == "linelevel":
+            if (node_labels == 1).sum() > 0:
+                ce_node = nn.CrossEntropyLoss(reduction='none')
+                loss_per_node = ce_node(node_logits, node_labels)
+                weights = torch.where(node_labels == 1, 1.0, 0.5).to(node_logits.device)
+                node_loss = (loss_per_node * weights).mean()
+                entropy = self.loss_fn.entropy_loss(node_logits)
+            else:
+                node_loss = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
+                entropy = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
+
+            if self.current_epoch >= self.hparams.get("freeze_func_epochs", 500):
+                ce_func = nn.CrossEntropyLoss()
+                func_loss = ce_func(graph_logits.view(1, -1), func_label.view(1))
+            else:
+                func_loss = torch.tensor(0.0, device=graph_logits.device, requires_grad=True)
+
+            loss = node_loss + func_loss + 0.01 * entropy
+
+        else:
+            loss = self.loss_fn(node_logits, node_labels, graph_logits, func_label)
+            node_loss = torch.tensor(0.0, device=node_logits.device)
+            func_loss = torch.tensor(0.0, device=node_logits.device)
+            entropy = torch.tensor(0.0, device=node_logits.device)
+
         self.log("train_loss", loss, prog_bar=True, sync_dist=True)
-        # self.log("train_loss_node", node_loss, prog_bar=True, sync_dist=True)
-        # self.log("train_loss_func", func_loss, prog_bar=True, sync_dist=True)
-        # self.log("train_entropy", entropy, sync_dist=True)
+        self.log("train_loss_node", node_loss, prog_bar=True, sync_dist=True)
+        self.log("train_loss_func", func_loss, prog_bar=True, sync_dist=True)
+        # self.log("train_entropy", entropy, prog_bar=False, sync_dist=True)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
         node_logits, graph_logits = self(batch)
         node_labels = batch.ndata['_VULN'].long()
         func_label = batch.ndata['_FVULN'][0].long()
-        
+
         temperature = 0.7
         node_probs = torch.softmax(node_logits / temperature, dim=1)
-        # node_probs = torch.softmax(node_logits, dim=1)
-        pred_node = (node_probs[:, 1] >= 0.5).long() # imbalanced nodes
+        pred_node = (node_probs[:, 1] >= 0.5).long()
         pred = torch.argmax(graph_logits).item()
 
         self.val_preds.append(pred)
@@ -325,8 +351,6 @@ class LitSvulDetGAT(LightningModule):
         self.val_f1_history.append((epoch, f1))
         self.acc_history.append((epoch, acc))
 
-        # self.log("val_acc", acc, prog_bar=True,  sync_dist=True)
-        # self.log("val_acc_node", acc_node, prog_bar=True, sync_dist=True)
         self.log('val_f1', f1, prog_bar=True, sync_dist=True)
         self.log("val_f1_node", f1_node, prog_bar=True, sync_dist=True)
 
@@ -339,6 +363,7 @@ class LitSvulDetGAT(LightningModule):
         node_logits, graph_logits = self(batch)
         node_labels = batch.ndata['_VULN'].long()
         func_label = batch.ndata['_FVULN'][0].long()
+
         node_probs = torch.softmax(node_logits, dim=1)
         node_preds = (node_probs[:, 1] >= 0.5).long()
         func_pred = torch.argmax(graph_logits).item()
@@ -362,12 +387,11 @@ class LitSvulDetGAT(LightningModule):
         node_pre = pd.DataFrame({"True_label": node_labels, "Prediction": node_preds})
         func_pre.to_csv(f"{utls.outputs_dir()}/func_prediction.csv", index=False)
         node_pre.to_csv(f"{utls.outputs_dir()}/nodes_prediction.csv", index=False)  
+
         node_f1 = f1_score(node_labels, node_preds, average="macro", zero_division=0)
         node_acc = accuracy_score(node_labels, node_preds)
         node_precision = precision_score(node_labels, node_preds, average="macro", zero_division=0)
         node_recall = recall_score(node_labels, node_preds, average="macro", zero_division=0)
-        node_auroc = roc_auc_score(node_labels, node_preds)
-        node_mcc = matthews_corrcoef(node_labels, node_preds)
 
         func_f1 = f1_score(func_labels, func_preds, average="macro", zero_division=0)
         func_acc = accuracy_score(func_labels, func_preds)
@@ -398,10 +422,16 @@ class LitSvulDetGAT(LightningModule):
             'Function Recall': f"{func_recall:.5f}",
         }
         metrics_df = pd.DataFrame([metrics])
-        metrics_df.to_csv(f"{utls.outputs_dir()}/test_metrics.csv", mode='a', header=not os.path.exists(f"{utls.outputs_dir()}/test_metrics.csv"), index=False)
+        metrics_df.to_csv(
+            f"{utls.outputs_dir()}/test_metrics.csv",
+            mode='a',
+            header=not os.path.exists(f"{utls.outputs_dir()}/test_metrics.csv"),
+            index=False
+        )
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
+
 
 class Savebestconfig:
     def save_to_json(data, file_path):
@@ -447,124 +477,8 @@ def get_or_compute_v1(df, config_grid, save_path=f"{utls.cache_dir()}/v1.npy"):
         np.save(save_path, v1)
     return v1
 
-     
-def train_with_param_trials(df, graph_dir, config_grid):
-    seed_everything(123)
-    num_cpus = torch.get_num_threads() - 2 if torch.get_num_threads() > 2 else torch.get_num_threads()
-    train_set = GraphFunctionDataset(df, graph_dir, split='train')
-    val_set = GraphFunctionDataset(df, graph_dir, split='val')
-    test_set = GraphFunctionDataset(df, graph_dir, split='test')
-
-    train_loader = GraphDataLoader(train_set, batch_size=1, shuffle=True, num_workers=num_cpus)
-    val_loader = GraphDataLoader(val_set, batch_size=1, num_workers=num_cpus)
-    test_loader = GraphDataLoader(test_set, batch_size=1, num_workers=num_cpus)
-    best_mo_path = f"{utls.outputs_dir()}/best_confir.json"
-    
-    if os.path.exists(best_mo_path):
-        print("[Infos] Loading from pre-trained best config...")
-        best_config = Savebestconfig.load_from_json(best_mo_path)
-        best_model_path = f"{utls.cache_dir()}/checkpoints/best_model.ckpt"
-        seed_everything(123)
-        final_model = LitSvulDetGAT.load_from_checkpoint(best_model_path, config=best_config)
-        final_trainer = Trainer(logger=False, enable_progress_bar=True)
-        print("\n=== Testing the best model on test set ===")
-        final_trainer.test(final_model, test_loader)
-        return  
-
-    best_val_f1 = 0
-    best_model_path = None
-    best_config = None
-
-    trials = list(product(config_grid['hidden_feats'], config_grid['dropout'], config_grid['lr']))
-    print(f"Running {len(trials)} trials...")
-
-    v1 = get_or_compute_v1(df, config_grid)
-    for idx, (hidden, dropout, lr) in enumerate(trials):
-        print(f"\n=== Trial {idx+1} ===")
-        trial_config = {
-            'in_feats': config_grid['in_feats'],
-            'hidden_feats': hidden,
-            'num_heads': config_grid['num_heads'],
-            'dropout': dropout,
-            'lr': lr,
-            'embedd_method': config_grid['embedd_method'],
-            'glmethod': config_grid['glmethod'],
-            #
-            'rand_feat_dim': 100,
-            'func_emb_dim': 768,
-            'embed_dim': 768,
-        }
-        node_pos_weight = compute_node_class_weights(train_set)
-        model = LitSvulDetGAT(trial_config, v1, node_pos_weight)
-        # model = LitSvulDetGAT(trial_config, v1)
-
-        checkpoint_path = f"{utls.cache_dir()}/checkpoints/trial_{idx+1}.ckpt"
-
-        checkpoint_callback = ModelCheckpoint(
-            monitor=config_grid['check_monitor'],  # 'val_f1'
-            dirpath=os.path.dirname(checkpoint_path),
-            filename=os.path.basename("best_model"),  
-            save_top_k=1,
-            mode='max',
-        )
-
-        early_stopping_callback = EarlyStopping(
-            monitor=config_grid['check_monitor'],
-            patience=config_grid['check_patience'],
-            mode='max'
-        )
-
-        trainer = Trainer(
-            max_epochs=config_grid['max_epochs'],
-            callbacks=[checkpoint_callback, early_stopping_callback],
-            logger=False,
-            enable_progress_bar=True,
-            strategy=DDPStrategy(find_unused_parameters=True)
-        )
-        trainer.fit(model, train_loader, val_loader)
-
-        plt.plot(*zip(*model.val_f1_history), label=f'Trial {idx+1} - F1', marker='o')
-        plt.plot(*zip(*model.acc_history), label=f'Trial {idx+1} - Accuracy', marker='s')
-        plt.xlabel("Epoch")
-        plt.ylabel("Validation Metric")
-        plt.title("Validation Metric Score History")
-        plt.legend()
-        plt.savefig(f"{utls.get_dir(f'{utls.outputs_dir()}/train_hystory')}/trial_{idx+1}_metrics_history.png")
-        plt.close()
-
-        val_f1 = model.val_f1_history[-1][1] if model.val_f1_history else 0
-        if val_f1 > best_val_f1:
-            best_val_f1 = val_f1
-            best_model_path = checkpoint_callback.best_model_path
-            best_config = trial_config
-            
-            
-        trainer.test(model, test_loader)
-    print(f"\nBest model: {best_model_path} with val_f1 = {best_val_f1:.4f}")
-    print(f"Best config: {best_config}\n[Infos] Saved")
-
-    # Save best config
-    Savebestconfig.save_to_json(best_config, best_mo_path)
-
-    if best_model_path and os.path.exists(best_model_path):
-        shutil.copy(best_model_path, f"{utls.cache_dir()}/checkpoints/best_model.ckpt")
-
-    print("\n=== Testing the best model on test set ===")
-    seed_everything(123)
-    final_model = LitSvulDetGAT.load_from_checkpoint(best_model_path, config=best_config)
-    final_trainer = Trainer(logger=False, enable_progress_bar=True)
-    final_trainer.test(final_model, test_loader)
-
-
-
 class FunctionLevelEvaluator:
     def __init__(self, model, config_grid):
-        """
-        Initialize the evaluator with model and configuration
-        Args:
-            model: The trained model (instance of LitSvulDetGAT)
-            config_grid: Configuration dictionary containing parameters
-        """
         self.model = model
         self.config_grid = config_grid
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -572,7 +486,7 @@ class FunctionLevelEvaluator:
         self.model.eval()
         
     def _get_graph_path(self):
-        """Helper method to get graph path based on config"""
+        
         param = self.config_grid['embedd_method']
         if param == "Codebert":
             return f"{utls.cache_dir()}/Graph/dataset_svuldet_codebert_pdg+raw"
@@ -605,9 +519,7 @@ class FunctionLevelEvaluator:
                 print(f"Error loading graph {graph_id}: {e}")
     
     def predict_function_level(self, threshold=0.5):
-        """
-        Predict function-level vulnerability based on node-level predictions
-        """
+
         if not hasattr(self, 'test_graphs'):
             self.load_test_data()
             
@@ -636,10 +548,7 @@ class FunctionLevelEvaluator:
         return pd.DataFrame(results)
     
     def evaluate_function_level(self, threshold=0.5):
-        """
-        Evaluate function-level performance metrics
-        Dictionary of evaluation metrics
-        """
+
         pred_df = self.predict_function_level(threshold)
         y_true = pred_df['true_label'].values
         y_pred = pred_df['func_level_pred'].values
@@ -656,56 +565,157 @@ class FunctionLevelEvaluator:
         pd.DataFrame([metrics]).to_csv(f"{utls.outputs_dir()}/function_level_metrics.csv", index=False)
         
         return metrics
+ 
+ 
+def train_with_param_trials(df, graph_dir, config_grid):
+    seed_everything(123)
+    num_cpus = torch.get_num_threads() - 2 if torch.get_num_threads() > 2 else torch.get_num_threads()
+    train_set = GraphFunctionDataset(df, graph_dir, split='train')
+    val_set = GraphFunctionDataset(df, graph_dir, split='val')
+    test_set = GraphFunctionDataset(df, graph_dir, split='test')
 
+    train_loader = GraphDataLoader(train_set, batch_size=1, shuffle=True, num_workers=num_cpus)
+    val_loader = GraphDataLoader(val_set, batch_size=1, num_workers=num_cpus)
+    test_loader = GraphDataLoader(test_set, batch_size=1, num_workers=num_cpus)
+
+    best_mo_path = f"{utls.outputs_dir()}/best_confir.json"
+    best_model_path = f"{utls.cache_dir()}/checkpoints/best_model.ckpt"
+
+    if os.path.exists(best_mo_path) and os.path.exists(best_model_path):
+        print("[Infos] Loading from pre-trained best config...")
+        best_config = Savebestconfig.load_from_json(best_mo_path)
+        final_model = LitSvulDetGAT.load_from_checkpoint(best_model_path, config=best_config)
+        final_trainer = Trainer(logger=False, enable_progress_bar=True)
+        print("\n=== Testing the best model on test set ===")
+        final_trainer.test(final_model, test_loader)
+
+        evaluator = FunctionLevelEvaluator(final_model, config_grid)
+        metrics = evaluator.evaluate_function_level()
+        print("\n\n[INFO] Function-level evaluation metrics:")
+        for k, v in metrics.items():
+            print(f"{k}: {v:.4f}")
+        return
+
+    # No pre-trained model, run trials
+    best_val_f1 = 0
+    best_config = None
+    trials = list(product(config_grid['hidden_feats'], config_grid['dropout'], config_grid['lr']))
+    print(f"Running {len(trials)} trials...")
+
+    v1 = get_or_compute_v1(df, config_grid)
+    best_model = None
+
+    for idx, (hidden, dropout, lr) in enumerate(trials):
+        print(f"\n=== Trial {idx+1} ===")
+        trial_config = {
+            'in_feats': config_grid['in_feats'],
+            'hidden_feats': hidden,
+            'num_heads': config_grid['num_heads'],
+            'dropout': dropout,
+            'lr': lr,
+            'embedd_method': config_grid['embedd_method'],
+            'glmethod': config_grid['glmethod'],
+            'rand_feat_dim': 100,
+            'func_emb_dim': config_grid['in_feats'],
+            'embed_dim': config_grid['in_feats'],
+            'method': config_grid['method']
+        }
+        node_pos_weight = compute_node_class_weights(train_set)
+        model = LitSvulDetGAT(trial_config, v1, node_pos_weight)
+
+        checkpoint_path = f"{utls.cache_dir()}/checkpoints/trial_{idx+1}.ckpt"
+        checkpoint_callback = ModelCheckpoint(
+            monitor=config_grid['check_monitor'],
+            dirpath=os.path.dirname(checkpoint_path),
+            filename="best_model",
+            save_top_k=1,
+            mode='max',
+        )
+
+        early_stopping_callback = EarlyStopping(
+            monitor=config_grid['check_monitor'],
+            patience=config_grid['check_patience'],
+            mode='max'
+        )
+
+        trainer = Trainer(
+            max_epochs=config_grid['max_epochs'],
+            callbacks=[checkpoint_callback, early_stopping_callback],
+            logger=False,
+            enable_progress_bar=True,
+            strategy=DDPStrategy(find_unused_parameters=True)
+        )
+        
+        trainer.fit(model, train_loader, val_loader)
+
+        # Save metric history
+        plt.plot(*zip(*model.val_f1_history), label=f'Trial {idx+1} - F1', marker='o')
+        plt.plot(*zip(*model.acc_history), label=f'Trial {idx+1} - Accuracy', marker='s')
+        plt.xlabel("Epoch")
+        plt.ylabel("Validation Metric")
+        plt.title("Validation Metric Score History")
+        plt.legend()
+        plt.savefig(f"{utls.get_dir(f'{utls.outputs_dir()}/train_hystory')}/trial_{idx+1}_metrics_history.png")
+        plt.close()
+
+        val_f1 = model.val_f1_history[-1][1] if model.val_f1_history else 0
+        if val_f1 > best_val_f1:
+            best_val_f1 = val_f1
+            best_model = model
+            best_config = trial_config
+            # Save best checkpoint
+            if os.path.exists(checkpoint_callback.best_model_path):
+                shutil.copy(checkpoint_callback.best_model_path, best_model_path)
+
+    print(f"\n[INFO] Best model saved to: {best_model_path} with val_f1 = {best_val_f1:.4f}")
+    print(f"[INFO] Best config: {best_config}")
+
+    Savebestconfig.save_to_json(best_config, best_mo_path)
+
+    # Test best model (in memory, not reloaded)
+    print("\n=== Testing the best model on test set ===")
+    seed_everything(123)
+    final_trainer = Trainer(logger=False, enable_progress_bar=True)
+    final_trainer.test(best_model, test_loader)
+
+    # Run FunctionLevelEvaluator using final in-memory model
+    evaluator = FunctionLevelEvaluator(best_model, config_grid)
+    metrics = evaluator.evaluate_function_level()
+    print("\n\n[INFO] Function-level evaluation metrics derived from node prediction:")
+    for k, v in metrics.items():
+        print(f"{k}: {v:.4f}")
 
 if __name__ == '__main__':
     df = dataset()
-    
     config_grid = {
-        "embedd_method":  "Codebert",  # can be # "Codebert", "Sbert", or "Word2vec"
-        'max_epochs': 2, #30,
-        'in_feats': 768, #768, #384, #100 must e the same as the feature in graph 
-        'check_patience': 20, # 2, 5
-        'batch_size':  "batch_idx", 
-        'num_heads': 4, 
-        'check_monitor':  'val_f1_node',         
-        'hidden_feats': [525], # , [64][64, 256]
-        'lr': [1e-5], #[5e-5, 1e-4, 2e-4, 5e-4], 1e-5
-        'dropout': [0.4], 
-        # gl paramts
-        "graph_to_vec_method": "GraphSAGE", # "GraphSAGE",  # or "Node2Vec"
-        "cluster_method": "kmeans", #"dbscan",  # or "kmeans"
+        "method":"linelevel", # 'linelevel', ## methodlevel, "linelevel",
+        "embedd_method":  "Codebert", # "Codebert", "Sbert", or "Word2vec"
+        'max_epochs': 30,
+        'in_feats': 768,   #768, #384, #100 must e the same as the feature in graph 
+        'check_patience': 20, # 2
+        'batch_size':  "batch_idx",
+        'num_heads': 4,
+        'check_monitor':    'val_f1_node',         #'val_f1',  #'val_f1_node',
+        'hidden_feats': [525],
+        'lr': [1e-5],
+        'dropout': [0.4],
+        "graph_to_vec_method": "GraphSAGE",
+        "cluster_method": "dbscan",
         "cos_sim_threshold": 0.06,
         "gl_vec_length": 100,
-        "glmethod": "attention"  # can "attention" or "dependency"
+        "glmethod": "attention" # can "attention" or "dependency"
     }
-    
-    def graph_path(param = config_grid):
-        param = config_grid['embedd_method']
-        if param == "Codebert":
+
+    def graph_path(param=config_grid):
+        method = config_grid['embedd_method']
+        if method == "Codebert":
             return f"{utls.cache_dir()}/Graph/dataset_svuldet_codebert_pdg+raw"
-        elif param == "Word2vec":
-            return f"{utls.cache_dir()}/Graph/dataset_svuldet_word2vec_pdg+raw" 
-        elif param == "Sbert":
-            return f"{utls.cache_dir()}/Graph/dataset_svuldet_sbert_pdg+raw" 
-        else: 
-            print(f"[Error] Provide a good embedding model name… is can be: 'Codebert', 'Sbert', or 'Word2vec'") 
-            
+        elif method == "Word2vec":
+            return f"{utls.cache_dir()}/Graph/dataset_svuldet_word2vec_pdg+raw"
+        elif method == "Sbert":
+            return f"{utls.cache_dir()}/Graph/dataset_svuldet_sbert_pdg+raw"
+        else:
+            print("[Error] Provide a valid embedding model name…")
+
     graph_dir = graph_path(config_grid)
     train_with_param_trials(df, graph_dir, config_grid)
-    
-    
-    best_mo_path = f"{utls.outputs_dir()}/best_confir.json"
-    if os.path.exists(best_mo_path):
-        best_config = Savebestconfig.load_from_json(best_mo_path)
-        best_model_path = f"{utls.cache_dir()}/checkpoints/best_model.ckpt"
-        final_model = LitSvulDetGAT.load_from_checkpoint(best_model_path, config=best_config)
-        
-        # Perform function-level evaluation
-        evaluator = FunctionLevelEvaluator(final_model, config_grid)
-        metrics = evaluator.evaluate_function_level()
-        print("\n\n[INFO ] Function-level evaluation metrics dirived from nodes prediction:")
-        for k, v in metrics.items():
-            print(f"{k}: {v:.4f}")
- 
- 

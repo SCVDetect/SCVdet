@@ -1,4 +1,3 @@
-
 import os
 import numpy as np
 import sys
@@ -36,7 +35,7 @@ class GraphFunctionDataset(Dataset):
             vuldf = self.df[self.df.vul == 1]
             nonvuldf = self.df[self.df.vul == 0].sample(len(vuldf), random_state=0) # 5 * 
             self.df = pd.concat([vuldf, nonvuldf])
-            # self.df = self.df.sample(min(len(self.df), 1500))                           ########### -------------------------------------------------------------------------------------------->>>>
+            self.df = self.df.sample(min(len(self.df), 1500))                           ########### -------------------------------------------------------------------------------------------->>>>
             self.graph_dir = graph_dir
             self.graph_ids = []
         else: 
@@ -46,6 +45,7 @@ class GraphFunctionDataset(Dataset):
             vuldf = self.df[self.df.vul == 1]
             nonvuldf = self.df[self.df.vul == 0]#.sample(len(vuldf), random_state=0) # 5 * ########### -------------------------------------------------------------------------------------------->>>>
             self.df = pd.concat([vuldf, nonvuldf])
+            # self.df = self.df.sample(min(len(self.df), 1500)) 
             self.graph_dir = graph_dir
             self.graph_ids = []
 
@@ -270,7 +270,7 @@ class LitSvulDetGAT(LightningModule):
         node_logits, graph_logits = self(batch)
         node_labels = batch.ndata['_VULN'].long()
         func_label = batch.ndata['_FVULN'][0].long()
-        
+        # --- Node loss (only if at least 1 vulnerable node in batch) ---
         if (node_labels == 1).sum() > 0:
             ce_node = nn.CrossEntropyLoss(reduction='none')
             loss_per_node = ce_node(node_logits, node_labels)
@@ -280,19 +280,47 @@ class LitSvulDetGAT(LightningModule):
         else:
             node_loss = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
             entropy = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
-            
-        if self.current_epoch >= self.hparams.get("freeze_func_epochs", 500):
-            ce_func = nn.CrossEntropyLoss()
-            func_loss = ce_func(graph_logits.view(1, -1), func_label.view(1))
-        else:
-            func_loss = torch.tensor(0.0, device=graph_logits.device, requires_grad=True)
-            loss = node_loss + func_loss + 0.01 * entropy
+        # --- Function loss (always computed) ---
         
+        ce_func = nn.CrossEntropyLoss()
+        func_loss = ce_func(graph_logits.view(1, -1), func_label.view(1))
+        # Combine loss (node loss only counted if node_logits has vulnerable node)
+        loss = node_loss + func_loss + 0.01 * entropy
+        # Logging
         self.log("train_loss", loss, prog_bar=True, sync_dist=True)
         # self.log("train_loss_node", node_loss, prog_bar=True, sync_dist=True)
         # self.log("train_loss_func", func_loss, prog_bar=True, sync_dist=True)
         # self.log("train_entropy", entropy, sync_dist=True)
         return loss
+
+    
+    # def training_step(self, batch, batch_idx):
+    #     node_logits, graph_logits = self(batch)
+    #     node_labels = batch.ndata['_VULN'].long()
+    #     func_label = batch.ndata['_FVULN'][0].long()
+        
+    #     if (node_labels == 1).sum() > 0:
+    #         ce_node = nn.CrossEntropyLoss(reduction='none')
+    #         loss_per_node = ce_node(node_logits, node_labels)
+    #         weights = torch.where(node_labels == 1, 1.0, 0.5).to(node_logits.device)
+    #         node_loss = (loss_per_node * weights).mean()
+    #         entropy = self.loss_fn.entropy_loss(node_logits)
+    #     else:
+    #         node_loss = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
+    #         entropy = torch.tensor(0.0, device=node_logits.device, requires_grad=True)
+            
+    #     if self.current_epoch >= self.hparams.get("freeze_func_epochs", 500):
+    #         ce_func = nn.CrossEntropyLoss()
+    #         func_loss = ce_func(graph_logits.view(1, -1), func_label.view(1))
+    #     else:
+    #         func_loss = torch.tensor(0.0, device=graph_logits.device, requires_grad=True)
+    #         loss = node_loss + func_loss + 0.01 * entropy
+        
+    #     self.log("train_loss", loss, prog_bar=True, sync_dist=True)
+    #     # self.log("train_loss_node", node_loss, prog_bar=True, sync_dist=True)
+    #     # self.log("train_loss_func", func_loss, prog_bar=True, sync_dist=True)
+    #     # self.log("train_entropy", entropy, sync_dist=True)
+    #     return loss
 
     def validation_step(self, batch, batch_idx):
         node_logits, graph_logits = self(batch)
@@ -491,8 +519,8 @@ def train_with_param_trials(df, graph_dir, config_grid):
             'glmethod': config_grid['glmethod'],
             #
             'rand_feat_dim': 100,
-            'func_emb_dim': 768,
-            'embed_dim': 768,
+            'func_emb_dim': config_grid['in_feats'],
+            'embed_dim':  config_grid['in_feats'],
         }
         node_pos_weight = compute_node_class_weights(train_set)
         model = LitSvulDetGAT(trial_config, v1, node_pos_weight)
@@ -537,16 +565,14 @@ def train_with_param_trials(df, graph_dir, config_grid):
             best_val_f1 = val_f1
             best_model_path = checkpoint_callback.best_model_path
             best_config = trial_config
-            
-            
-        trainer.test(model, test_loader)
+
     print(f"\nBest model: {best_model_path} with val_f1 = {best_val_f1:.4f}")
     print(f"Best config: {best_config}\n[Infos] Saved")
 
     # Save best config
-    Savebestconfig.save_to_json(best_config, best_mo_path)
+    Savebestconfig.save_to_json(best_config, best_mo_path )
 
-    if best_model_path and os.path.exists(best_model_path):
+    if best_model_path and os.path.exists(best_model_path): 
         shutil.copy(best_model_path, f"{utls.cache_dir()}/checkpoints/best_model.ckpt")
 
     print("\n=== Testing the best model on test set ===")
@@ -663,18 +689,18 @@ if __name__ == '__main__':
     
     config_grid = {
         "embedd_method":  "Codebert",  # can be # "Codebert", "Sbert", or "Word2vec"
-        'max_epochs': 2, #30,
+        'max_epochs': 30, #30,
         'in_feats': 768, #768, #384, #100 must e the same as the feature in graph 
-        'check_patience': 20, # 2, 5
+        'check_patience': 10, # 2, 5
         'batch_size':  "batch_idx", 
         'num_heads': 4, 
-        'check_monitor':  'val_f1_node',         
+        'check_monitor':  'val_f1_node',                    #'val_f1', # val_acc, 'val_f1' ######### 'val_f1_node'
         'hidden_feats': [525], # , [64][64, 256]
-        'lr': [1e-5], #[5e-5, 1e-4, 2e-4, 5e-4], 1e-5
-        'dropout': [0.4], 
+        'lr': [1e-5], #[5e-5, 1e-4, 2e-4, 5e-4],
+        'dropout': [0.4], #[0.1, 0.2, 0.3, 0.4, 0.5],
         # gl paramts
         "graph_to_vec_method": "GraphSAGE", # "GraphSAGE",  # or "Node2Vec"
-        "cluster_method": "kmeans", #"dbscan",  # or "kmeans"
+        "cluster_method": "dbscan", #"dbscan",  # or "kmeans"
         "cos_sim_threshold": 0.06,
         "gl_vec_length": 100,
         "glmethod": "attention"  # can "attention" or "dependency"
