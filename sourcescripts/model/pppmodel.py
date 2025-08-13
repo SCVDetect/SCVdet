@@ -110,8 +110,7 @@ class MultiTaskGAT(nn.Module):
         self.embedd_method = config['embedd_method']
         self.glmethod = config['glmethod']
         self.base_dropout = config['dropout']
-        self.v1 = nn.Parameter(torch.tensor(v1).float())  # Learnable
-
+        self.v1 = nn.Parameter(torch.tensor(v1).float())  
         rand_dim = config['rand_feat_dim']
         femb_dim = config['func_emb_dim']
         emb_dim = config['embed_dim']
@@ -184,7 +183,6 @@ class MultiTaskGAT(nn.Module):
         
         
         v1_proj = self.v1_projector(self.v1).to(h_node.device)
-
         if self.glmethod == "attention":
             v1_proj = v1_proj.unsqueeze(0)
             att_scores = torch.matmul(h_node, v1_proj.t()).squeeze(-1)
@@ -247,7 +245,6 @@ def compute_node_class_weights(dataset):
     weights = total / (2 * counts.float())
     return weights
 
-# Lightning Module for Multi-Task GAT
 class LitSvulDetGAT(LightningModule):
     def __init__(self, config, v1, pos_weight=None):
         super().__init__()
@@ -255,7 +252,7 @@ class LitSvulDetGAT(LightningModule):
         self.model = MultiTaskGAT(config, v1)
         self.loss_fn = LearnableWeightedLoss(pos_weight)
         self.lr = config['lr']
-        self.style = config['method']  # methodlevel, linelevel, or default
+        self.style = config['method'] 
         self.val_f1_history = []
         self.acc_history = []
         self.val_preds = []
@@ -690,7 +687,7 @@ if __name__ == '__main__':
     config_grid = {
         "method":"linelevel", # 'linelevel', ## methodlevel, "linelevel",
         "embedd_method":  "Codebert", # "Codebert", "Sbert", or "Word2vec"
-        'max_epochs': 30,
+        'max_epochs': 50,
         'in_feats': 768,   #768, #384, #100 must e the same as the feature in graph 
         'check_patience': 20, # 2
         'batch_size':  "batch_idx",

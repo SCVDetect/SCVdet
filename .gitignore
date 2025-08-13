@@ -24,6 +24,8 @@ sourcescripts/storage/outputs_sample
 zzzcheck.ipynb
 sourcescripts/storage/oldversion
 sourcescripts/storage/outputs_codebert_01
+outputdata/outputof.png
+
 
 # C extensions
 *.so

@@ -29,12 +29,11 @@ python3 -B ./processing/process.py
 python3 -B ./processing/graphdata.py  
 ```
 ### 2. Node Feature Generation
-We train sequence-based models (CodeBERT, Word2Vec, and SBERT) to generate node features, then construct graphs for model training.
+We train sequence-based models (CodeBERT, Word2Vec, and SBERT) to generate node features, and then construct graphs for model training. We provide the three fine-tuned models used for text embedding, as well as metadata extracted from Joern for the project KB graphs, which can be directly downloaded when ```./installJoernanddata.sh``` is run.
+
+To prepare the dataset, navigate to ```/storage/processed```, unzip the files, and delete all folders while keeping only the ```"before," "after,"``` and ```"eval"``` folders. Place these folders data in the ```storage/processed/dataset``` directory.
 
 ```sh
-python3 -B ./embeddmodel/codebert.py  
-python3 -B ./embeddmodel/sentencebert.py  
-python3 -B ./embeddmodel/word2vec.py  
 python3 -B ./processing/graphconstruction.py 
 ```
 
@@ -49,11 +48,8 @@ The model is trained and tested at both function and statement levels. Output (`
 python3 -B ./model/scvuldetect.py  
 ```
 
-python3 -B ./model/newmodelaaaanew.py # best model
-
-
 ## Sample Output
-<img src="outputdata/outputof.png" alt="Model Output Example" width="300"/>
+Go to ```outputdata/```
 #### 500-node dependency graph
 <img src="outputdata/RQ1/500sample_optimized_call_graph.png" alt="Model Output Example" width="300"/>
 

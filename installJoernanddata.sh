@@ -6,8 +6,8 @@ fi
 
 cd sourcescripts/storage/external
 
+# https://github.com/joernio/joern/releases/download/v4.0.398/joern-cli.zip
 if [[ ! -d joern-cli ]]; then
-    # https://github.com/joernio/joern/releases/download/v4.0.398/joern-cli.zip
     wget https://github.com/joernio/joern/releases/download/v2.0.331/joern-cli.zip
     unzip joern-cli.zip
     rm joern-cli.zip
@@ -26,7 +26,6 @@ fi
 
 # https://drive.google.com/file/d/1W3Truwd_kEAGYwBgHd6hRLELAeyQRBwT/view?usp=sharing
 
-
 cd .. 
 
 cd processed
@@ -42,12 +41,18 @@ else
 fi
 
 cd ..
+
+mkdir cache -p
+
 cd cache
 
-if [[ ! -f "codebert_finetuned" ]]; then
-    gdown https://drive.google.com/uc?id=1X-QitxtD3Djdg8lJNrzkyzomBSwHu-A1
-    unzip codebert_finetuned.zip
-    rm codebert_finetuned.zip
+# https://drive.google.com/file/d/1NLxOqBHrU2H3oswqBvjL-fn8Ipe2o7a0/view?usp=sharing
+if [[ ! -f "embedmodel" ]]; then
+    gdown https://drive.google.com/uc?id=1NLxOqBHrU2H3oswqBvjL-fn8Ipe2o7a0
+    unzip embedmodel.zip
+    rm embedmodel.zip
 else
-    echo "Already downloaded codebert finetuned"
+    echo "Already downloaded finetuned embedding model"
 fi
+
+
