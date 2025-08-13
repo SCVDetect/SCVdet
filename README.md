@@ -48,6 +48,16 @@ The model is trained and tested at both function and statement levels. Output (`
 python3 -B ./model/scvuldetect.py  
 ```
 
+### 4 Pre-trained Models
+
+We provide a pre-trained model at the following link: [Download Pre-trained Model](https://drive.google.com/file/d/1UAC4Er_pPT5QPDVlUR6caxT7wWe9HBiM/view?usp=sharing). This includes full graphs constructed with project KB data, which can be used after downloading the complete package. 
+
+To set up the environment, create a virtual environment and run the following command to test the model:
+
+```sh
+python3 -B ./model/scvuldetect.py
+```
+
 ## Sample Output
 Go to ```outputdata/```
 #### 500-node dependency graph
