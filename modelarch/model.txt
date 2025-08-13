@@ -1,0 +1,92 @@
+(.venvd) root@MSI:/home/wp3/Modeling_GL/SCVdet/sourcescripts# python3 -B ./model/scvuldetect.py 
+Seed set to 123
+[train] Vulnerable: 1641, Non-Vulnerable: 13865
+---> Checking graphs for train: 100%|█████████████████████████████████████████████████████████| 2000/2000 [00:00<00:00, 379953.26it/s]
+[val] Vulnerable: 201, Non-Vulnerable: 1737
+---> Checking graphs for val: 100%|███████████████████████████████████████████████████████████| 1938/1938 [00:00<00:00, 323640.75it/s]
+[test] Vulnerable: 195, Non-Vulnerable: 1744
+---> Checking graphs for test: 100%|██████████████████████████████████████████████████████████| 1939/1939 [00:00<00:00, 454242.37it/s]
+[Infos] Loading from pre-trained best config...
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+HPU available: False, using: 0 HPUs
+
+=== Testing the best model on test set ===
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+Testing DataLoader 0: 100%|███████████████████████████████████████████████████████████████████████| 1791/1791 [00:27<00:00, 64.06it/s]
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+       Test metric             DataLoader 0
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+      test_func_acc         0.8648799657821655
+      test_func_f1          0.7583993077278137
+   test_func_precision      0.7132701277732849
+    test_func_recall        0.9248913526535034
+      test_node_acc         0.9461922645568848
+      test_node_f1          0.5165801048278809
+   test_node_precision      0.5191635489463806
+    test_node_recall        0.5149896740913391
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[INFO] Function-level evaluation metrics:
+function_accuracy: 0.8649
+function_precision: 0.7133
+function_f1: 0.7584
+function_recall: 0.9249
+vulnerable_nodes_ratio_mean: 0.0590
+
+===== Model Architecture =====
+LitSvulDetGAT(
+  (model): MultiTaskGAT(
+    (rand_proj): Linear(in_features=100, out_features=525, bias=True)
+    (femb_proj): Linear(in_features=768, out_features=525, bias=True)
+    (emb_proj): Linear(in_features=768, out_features=525, bias=True)
+    (node_comb_proj): Linear(in_features=1050, out_features=525, bias=True)
+    (func_comb_proj): Linear(in_features=1050, out_features=525, bias=True)
+    (gat1_node): GATConv(
+      (fc): Linear(in_features=525, out_features=2100, bias=False)
+      (feat_drop): Dropout(p=0.4, inplace=False)
+      (attn_drop): Dropout(p=0.4, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+    (gat2_node): GATConv(
+      (fc): Linear(in_features=2100, out_features=525, bias=False)
+      (feat_drop): Dropout(p=0.4, inplace=False)
+      (attn_drop): Dropout(p=0.4, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+    (gat1_func): GATConv(
+      (fc): Linear(in_features=525, out_features=2100, bias=False)
+      (feat_drop): Dropout(p=0.4, inplace=False)
+      (attn_drop): Dropout(p=0.4, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+    (gat2_func): GATConv(
+      (fc): Linear(in_features=2100, out_features=525, bias=False)
+      (feat_drop): Dropout(p=0.4, inplace=False)
+      (attn_drop): Dropout(p=0.4, inplace=False)
+      (leaky_relu): LeakyReLU(negative_slope=0.2)
+    )
+    (node_mlp): Sequential(
+      (0): Linear(in_features=525, out_features=525, bias=True)
+      (1): ReLU()
+      (2): Dropout(p=0.4, inplace=False)
+      (3): Linear(in_features=525, out_features=262, bias=True)
+      (4): ReLU()
+      (5): Dropout(p=0.4, inplace=False)
+      (6): Linear(in_features=262, out_features=2, bias=True)
+    )
+    (graph_mlp): Sequential(
+      (0): Linear(in_features=525, out_features=2, bias=True)
+    )
+    (v1_projector): Linear(in_features=128, out_features=525, bias=True)
+    (beta_mlp): Sequential(
+      (0): Linear(in_features=128, out_features=16, bias=True)
+      (1): ReLU()
+      (2): Linear(in_features=16, out_features=1, bias=True)
+      (3): Sigmoid()
+    )
+  )
+  (loss_fn): LearnableWeightedLoss()
+)
+==============================

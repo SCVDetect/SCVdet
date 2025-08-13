@@ -595,9 +595,12 @@ def train_with_param_trials(df, graph_dir, config_grid):
 
         evaluator = FunctionLevelEvaluator(final_model, config_grid)
         metrics = evaluator.evaluate_function_level()
-        print("\n\n[INFO] Function-level evaluation metrics derived from node prediction:")
+        print("\n\n[INFO] Function-level evaluation metrics:")
         for k, v in metrics.items():
             print(f"{k}: {v:.4f}")
+        # print("\n===== Model Architecture =====")
+        # print(final_model)
+        # print("==============================\n")
         return
 
     best_val_f1 = 0
@@ -684,6 +687,8 @@ def train_with_param_trials(df, graph_dir, config_grid):
     print("\n\n[INFO] Function-level evaluation metrics:")
     for k, v in metrics.items():
         print(f"{k}: {v:.4f}")
+    # Print model architecture 
+
 
 if __name__ == '__main__':
     df = dataset()
