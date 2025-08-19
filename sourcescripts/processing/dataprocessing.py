@@ -80,9 +80,6 @@ def allfunc(row):
     ret["removed"] = [] if len(readfile) == 0 else readfile["removed"]
     ret["before"] = row["func_before"]
     ret["after"] = row["func_before"]
-    ret['CVE_vuldescription'] = row['Domain_decsriptions']
-    ret["CWE_vuldescription"] = row['Description_Mitre']
-    ret['CWE_Sample'] = row['Sample Code']
     ret["CWE_ID"] = row['CWE-ID']
 
     if len(readfile) > 0:
