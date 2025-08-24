@@ -61,7 +61,7 @@ python3 -B ./model/scvuldetect.py
 ## Sample Output
 Go to ```outputdata/```
 #### 500-node dependency graph
-<img src="outputdata/RQ1/500sample_optimized_call_graph.png" alt="Model Output Example" width="300"/>
+<img src="outputdata/RQ1/500sample_optimized_call_graph.png" alt="Model Output Example" width="500"/>
 
 #### Model tested on Bigvul
 <img src="outputdata/bigvuloutputaok11.png" alt="Model Output Example" width="300"/>
