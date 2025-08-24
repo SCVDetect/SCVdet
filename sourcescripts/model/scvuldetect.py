@@ -312,8 +312,8 @@ class LitSvulDetGAT(LightningModule):
             entropy = torch.tensor(0.0, device=node_logits.device)
 
         self.log("train_loss", loss, prog_bar=True, sync_dist=True)
-        self.log("train_loss_node", node_loss, prog_bar=True, sync_dist=True)
-        self.log("train_loss_func", func_loss, prog_bar=True, sync_dist=True)
+        # self.log("train_loss_node", node_loss, prog_bar=True, sync_dist=True)
+        # self.log("train_loss_func", func_loss, prog_bar=True, sync_dist=True)
         # self.log("train_entropy", entropy, prog_bar=False, sync_dist=True)
 
         return loss
