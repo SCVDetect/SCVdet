@@ -2,7 +2,7 @@
 
 #### Modeling Function-Level Relationships for Vulnerability Detection in Graph Neural Networks
 
-This repository contains the implementation of our Graph Neural Network (GNN) model for vulnerability detection by modeling function-level relationships in source code.  
+This repository contains the implementation of our GNN model for vulnerability detection by modeling function-level relationships in source code.  
 
 ## 1. Dataset  & Data Processing 
 We use two real-world datasets constructed from Java and C/C++ code:  
