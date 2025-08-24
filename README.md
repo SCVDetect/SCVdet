@@ -63,3 +63,8 @@ Go to ```outputdata/```
 #### 500-node dependency graph
 <img src="outputdata/RQ1/500sample_optimized_call_graph.png" alt="Model Output Example" width="300"/>
 
+#### Model tested on Bigvul
+<img src="outputdata/bigvuloutputaok.png" alt="Model Output Example" width="300"/>
+
+
+
