@@ -695,7 +695,7 @@ def train_with_param_trials(df, graph_dir, config_grid):
 if __name__ == '__main__':
     df = dataset()
     config_grid = {
-       "method": "linelevel", # 'linelevel', # methodlevel, linelevel,
+       "method": "linelevel1", # 'linelevel', # methodlevel, linelevel,
         "embedd_method":  "Codebert", # "Codebert", "Sbert", or "Word2vec"
         'max_epochs':50, # 30,
         'in_feats': 768,   #768 for "Codebert", #384 for "Sbert", and  #100 for "Word2vec"
