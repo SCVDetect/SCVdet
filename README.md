@@ -64,7 +64,7 @@ Go to ```outputdata/```
 <img src="outputdata/RQ1/500sample_optimized_call_graph.png" alt="Model Output Example" width="300"/>
 
 #### Model tested on Bigvul
-<img src="outputdata/bigvuloutputaok.png" alt="Model Output Example" width="300"/>
+<img src="outputdata/bigvuloutputaok11.png" alt="Model Output Example" width="300"/>
 
 
 
