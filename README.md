@@ -1,6 +1,6 @@
 # SCVdet  
 
-### Modeling Function-Level Relationships for Vulnerability Detection: A GNN-Based Approach  
+#### Modeling Function-Level Relationships for Vulnerability Detection in Graph Neural Networks
 
 This repository contains the implementation of our Graph Neural Network (GNN) model for vulnerability detection by modeling function-level relationships in source code.  
 
@@ -52,7 +52,7 @@ python3 -B ./model/scvuldetect.py
 
 We provide a pre-trained model at the following link: [Download Pre-trained Model](https://drive.google.com/file/d/1UAC4Er_pPT5QPDVlUR6caxT7wWe9HBiM/view?usp=sharing). This includes full graphs constructed with project KB data, which can be used after downloading the complete package. 
 
-To set up the environment, create a virtual environment and run the following command to test the model:
+To set up the environment, create a virtual environment (with ```requirements.txt```) and run the following command to test the model:
 
 ```sh
 python3 -B ./model/scvuldetect.py

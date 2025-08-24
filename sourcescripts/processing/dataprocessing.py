@@ -64,14 +64,6 @@ def get_codediff(dataset, iid):
         return []
 
 def allfunc(row):
-    """Return a combined function (before + after commit) given the diff.
-
-    diff = return raw diff of combined function
-    added = return added line numbers relative to the combined function (start at 1)
-    removed = return removed line numbers relative to the combined function (start at 1)
-    before = return combined function, commented out added lines
-    after = return combined function, commented out removed lines
-    """
     readfile = get_codediff(row["dataset"], row["id"])
 
     ret = dict()
@@ -80,9 +72,6 @@ def allfunc(row):
     ret["removed"] = [] if len(readfile) == 0 else readfile["removed"]
     ret["before"] = row["func_before"]
     ret["after"] = row["func_before"]
-    ret['CVE_vuldescription'] = row['Domain_decsriptions']
-    ret["CWE_vuldescription"] = row['Description_Mitre']
-    ret['CWE_Sample'] = row['Sample Code']
     ret["CWE_ID"] = row['CWE-ID']
 
     if len(readfile) > 0:
@@ -108,15 +97,7 @@ def allfunc(row):
 
 
 def dataset(minimal=True, sample=False, return_raw=False, splits="default"):
-    """Read dataset Data.
-
-    Args:
-        sample (bool): Only used for testing!
-        splits (str): default, crossproject-(linux|Chrome|Android|qemu)
-
-    EDGE CASE FIXING:
-    id = 177860 should not have comments in the before/after
-    """
+   
     savedir = utls.get_dir(utls.cache_dir() / "minimal_datasets")
     if minimal:
         try:
@@ -151,12 +132,12 @@ def dataset(minimal=True, sample=False, return_raw=False, splits="default"):
     filename = "sample_data.csv" if sample else    "MSR_data_cleaned.csv" #    "ProjectKB_domain_csv.csv"         #"data_FFmpeg+qemu.csv" #"ProjectKB_domain_csv.csv" # 
     df = pd.read_csv(utls.external_dir() / filename)
    
-    df["dataset"] = "dataset" # change this to kbdataset
+    df["dataset"] = "dataset" # 
 
     # Remove comments and delete empty space
-    df["func_before"] = utls.dfmp(df, utls.remove_comments, "func_before", cs=500) # , cs=500
+    df["func_before"] = utls.dfmp(df, utls.remove_comments, "func_before", cs=500) 
     df['func_before'] = df['func_before'].apply(lambda x: '\n'.join(line for line in x.split('\n') if line.strip()))
-    df["func_after"] = utls.dfmp(df, utls.remove_comments, "func_after", cs=500) # , cs=500
+    df["func_after"] = utls.dfmp(df, utls.remove_comments, "func_after", cs=500) 
     df['func_after'] = df['func_after'].apply(lambda x: '\n'.join(line for line in x.split('\n') if line.strip()))
    
     # Return raw (for testing)
@@ -229,12 +210,6 @@ def dataset(minimal=True, sample=False, return_raw=False, splits="default"):
     return df
 
 def drop_lone_nodes(nodes, edges):
-    """Remove nodes with no edge connections.
-
-    Args:
-        nodes (pd.DataFrame): columns are id, node_label
-        edges (pd.DataFrame): columns are outnode, innode, etype
-    """
     nodes = nodes[(nodes.id.isin(edges.innode)) | (nodes.id.isin(edges.outnode))]
     return nodes
 def ne_groupnodes(n, e):
@@ -257,11 +232,7 @@ def ne_groupnodes(n, e):
 
 
 def neighbour_nodes(nodes, edges, nodeids: list, hop: int = 1, intermediate=True):
-    """Given nodes, edges, nodeid, return hop neighbours.
 
-    nodes = pd.DataFrame()
-
-    """
     nodes_new = (
         nodes.reset_index(drop=True).reset_index().rename(columns={"index": "adj"})
     )
@@ -507,7 +478,7 @@ def helper(row):
     """Run get_dep_add_lines from dict.
 
     Example:
-    df = svdd.dataset()
+    df = dataset()
     added = df[df.id==177775].added.item()
     removed = df[df.id==177775].removed.item()
     helper({"id":177775, "removed": removed, "added": added})
