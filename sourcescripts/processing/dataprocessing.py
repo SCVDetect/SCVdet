@@ -148,7 +148,7 @@ def dataset(minimal=True, sample=False, return_raw=False, splits="default"):
             return df
         except Exception as E:
             pass
-    filename = "sample_data.csv" if sample else        "ProjectKB_domain_csv.csv"         #"data_FFmpeg+qemu.csv" #"ProjectKB_domain_csv.csv" # 
+    filename = "sample_data.csv" if sample else    "MSR_data_cleaned.csv" #    "ProjectKB_domain_csv.csv"         #"data_FFmpeg+qemu.csv" #"ProjectKB_domain_csv.csv" # 
     df = pd.read_csv(utls.external_dir() / filename)
    
     df["dataset"] = "dataset" # change this to kbdataset
@@ -512,8 +512,8 @@ def helper(row):
     removed = df[df.id==177775].removed.item()
     helper({"id":177775, "removed": removed, "added": added})
     """
-    before_path = str(utls.processed_dir() / f"dataset/before/{row['id']}.java")
-    after_path = str(utls.processed_dir() / f"dataset/after/{row['id']}.java")
+    before_path = str(utls.processed_dir() / f"dataset/before/{row['id']}.c")
+    after_path = str(utls.processed_dir() / f"dataset/after/{row['id']}.c")
     try:
         dep_add_lines = get_dep_add_lines(before_path, after_path, row["added"])
     except Exception:
