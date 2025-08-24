@@ -1,6 +1,6 @@
 # SCVdet  
 
-### Modeling Function-Level Relationships for Vulnerability Detection: A GNN-Based Approach  
+#### Modeling Function-Level Relationships for Vulnerability Detection in Graph Neural Networks
 
 This repository contains the implementation of our Graph Neural Network (GNN) model for vulnerability detection by modeling function-level relationships in source code.  
 
