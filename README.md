@@ -8,7 +8,7 @@ This repository contains the implementation of our GNN model for vulnerability d
 We use two real-world datasets constructed from Java and C/C++ code:  
 - **Dataset 1**: ProjectKB  
 - **Dataset 2**: QEMU+FFmpeg  
-For graph data extraction from source code, we use **Joern**, an open-source code analysis tool. The automated extraction process is implemented in the provided scripts. Run ``` ./installJoernanddata.sh``` to install.
+For graph data extraction from source code, we use **Joern**[(https://joern.io/)], an open-source code analysis tool. The automated extraction process is implemented in the provided scripts. Run ``` ./installJoernanddata.sh``` to install.
 
 ```sh
 chmod +x installJoernanddata.sh
