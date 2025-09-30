@@ -8,7 +8,7 @@ This repository contains the implementation of our GNN model for vulnerability d
 We use two real-world datasets constructed from Java and C/C++ code:  
 - **Dataset 1**: ProjectKB  
 - **Dataset 2**: QEMU+FFmpeg  
-For graph data extraction from source code, we use **Joern**[(https://joern.io/)], an open-source code analysis tool. The automated extraction process is implemented in the provided scripts. Run ``` ./installJoernanddata.sh``` to install.
+For graph data extraction from source code, we use [**Joern**](https://joern.io/), an open-source code analysis tool. The automated extraction process is implemented in the provided scripts. Run ``` ./installJoernanddata.sh``` to install.
 
 ```sh
 chmod +x installJoernanddata.sh
@@ -29,7 +29,7 @@ python3 -B ./processing/process.py
 python3 -B ./processing/graphdata.py  
 ```
 ### 2. Node Feature Generation
-We train sequence-based models (CodeBERT, Word2Vec, and SBERT) to generate node features, and then construct graphs for model training. We provide the three fine-tuned models used for text embedding, as well as metadata extracted from Joern[(https://joern.io/)] for the project KB graphs, which can be directly downloaded when ```./installJoernanddata.sh``` is run.
+We train sequence-based models (CodeBERT, Word2Vec, and SBERT) to generate node features, and then construct graphs for model training. We provide the three fine-tuned models used for text embedding, as well as metadata extracted from Joern for the project KB graphs, which can be directly downloaded when ```./installJoernanddata.sh``` is run.
 
 To prepare the dataset, navigate to ```/storage/processed```, unzip the files, and delete all folders while keeping only the ```"before," "after,"``` and ```"eval"``` folders. Place these folders data in the ```storage/processed/dataset``` directory.
 
