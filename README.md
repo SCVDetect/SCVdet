@@ -67,7 +67,7 @@ Go to ```outputdata/```
 
 
 #### ***Demo Video***--> Model inference on Bigvul 
-<a href="https://drive.google.com/file/d/1hN5nTqJCM1a3DJe-BqqM0sFYUF6OEUUB/view?usp=sharing" target="_blank">
+<a href="https://drive.google.com/file/d/1aBGnI94ltDb6vw95bdTPGIJ0BgoKJKop/view?usp=sharing" target="_blank">
   <img src="outputdata/image.png" alt="Model Output Example" width="400"/>
 </a>
 
