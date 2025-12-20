@@ -5,7 +5,7 @@
 This repository contains the implementation of our GNN model for vulnerability detection by modeling function-level relationships in source code.  
 
 ## 1. Dataset  & Data Processing 
-We use two real-world datasets constructed from Java and C/C++ code:  
+We use real-world datasets constructed from Java, C/C++, and Python code:  
 - **Dataset 1**: ProjectKB  
 - **Dataset 2**: QEMU+FFmpeg  
 - **Dataset 3**: Big-Vul
