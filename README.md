@@ -67,8 +67,8 @@ Go to ```outputdata/```
 
 
 #### Model inference on Bigvul 
-<a href="outputdata/Inference-demo-2025-12-12-17585201.mp4" target="_blank">
-  <img src="outputdata/bigvuloutputaok11.png" alt="Model Output Example" width="400"/>
+<a href="https://drive.google.com/file/d/1hN5nTqJCM1a3DJe-BqqM0sFYUF6OEUUB/view?usp=sharing" target="_blank">
+  <img src="outputdata/image.png" alt="Model Output Example" width="400"/>
 </a>
 
 
