@@ -33,9 +33,9 @@ class GraphFunctionDataset(Dataset):
             if verbose:
                 print(f"[{split}] Vulnerable: {sum(self.df.vul == 1)}, Non-Vulnerable: {sum(self.df.vul == 0)}")
             vuldf = self.df[self.df.vul == 1]
-            nonvuldf = self.df[self.df.vul == 0].sample(len(vuldf), random_state=0) # 5 * 
+            nonvuldf = self.df[self.df.vul == 0] #.sample(len(vuldf), random_state=0) # 5 * 
             self.df = pd.concat([vuldf, nonvuldf])
-            self.df = self.df.sample(min(len(self.df), 2000))                           ##----------------------------->>>>
+            # self.df = self.df.sample(min(len(self.df), 2000))                           ##----------------------------->>>>
             self.graph_dir = graph_dir
             self.graph_ids = []
         else: 
@@ -43,7 +43,7 @@ class GraphFunctionDataset(Dataset):
             if verbose:
                 print(f"[{split}] Vulnerable: {sum(self.df.vul == 1)}, Non-Vulnerable: {sum(self.df.vul == 0)}")
             vuldf = self.df[self.df.vul == 1]
-            nonvuldf = self.df[self.df.vul == 0]#.sample(len(vuldf), random_state=0) # 5 * #------------>>>>
+            nonvuldf = self.df[self.df.vul == 0] #.sample(len(vuldf), random_state=0) # 5 * #------------>>>>
             self.df = pd.concat([vuldf, nonvuldf])
             # self.df = self.df.sample(min(len(self.df), 1500)) 
             self.graph_dir = graph_dir
@@ -312,9 +312,6 @@ class LitSvulDetGAT(LightningModule):
             entropy = torch.tensor(0.0, device=node_logits.device)
 
         self.log("train_loss", loss, prog_bar=True, sync_dist=True)
-        # self.log("train_loss_node", node_loss, prog_bar=True, sync_dist=True)
-        # self.log("train_loss_func", func_loss, prog_bar=True, sync_dist=True)
-        # self.log("train_entropy", entropy, prog_bar=False, sync_dist=True)
 
         return loss
 

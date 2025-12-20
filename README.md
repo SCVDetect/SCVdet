@@ -8,6 +8,8 @@ This repository contains the implementation of our GNN model for vulnerability d
 We use two real-world datasets constructed from Java and C/C++ code:  
 - **Dataset 1**: ProjectKB  
 - **Dataset 2**: QEMU+FFmpeg  
+- **Dataset 3**: Big-Vul
+- **Dataset 4**: CVEFixes
 For graph data extraction from source code, we use [**Joern**](https://joern.io/), an open-source code analysis tool. The automated extraction process is implemented in the provided scripts. Run ``` ./installJoernanddata.sh``` to install.
 
 ```sh
@@ -63,8 +65,10 @@ Go to ```outputdata/```
 #### 500-node dependency graph
 <img src="outputdata/RQ1/500sample_optimized_call_graph.png" alt="Model Output Example" width="200"/>
 
-#### Model tested on Bigvul
-<img src="outputdata/bigvuloutputaok11.png" alt="Model Output Example" width="400"/>
 
+#### Model inference on Bigvul 
+<a href="outputdata/Inference-demo-2025-12-12-17585201.mp4" target="_blank">
+  <img src="outputdata/bigvuloutputaok11.png" alt="Model Output Example" width="400"/>
+</a>
 
 

@@ -14,13 +14,6 @@ else
     echo "Already downloaded Joern"
 fi
 
-# if [[ ! -f "ProjectKB_domain_csv" ]]; then
-#     gdown https://drive.google.com/uc\?id\=1W3Truwd_kEAGYwBgHd6hRLELAeyQRBwT
-#     unzip ProjectKB_domain_csv.zip
-#     rm ProjectKB_domain_csv.zip
-# else
-#     echo "Already downloaded dataset data"
-# fi
 
 #------ Bigvul data
 
@@ -34,15 +27,9 @@ fi
 
 cd .. 
 
-cd processed
+mkdir processed -p
 
-if [[ ! -f "PJkb.zip" ]]; then
-    gdown https://drive.google.com/uc\?id\=1wcoXzQEWxCDWmhC4mtCB4nHIGcIbeoNW
-    unzip PJkb.zip
-    rm PJkb.zip
-else
-    echo "Already downloaded dataset data"
-fi
+cd processed
 
 cd ..
 
